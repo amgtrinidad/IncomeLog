@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Monthly Income Logger</title>
+  <meta name="theme-color" content="#22c55e" />
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <style>
+    body{font-family:sans-serif;background:#0f172a;color:#fff;margin:0;padding:1em}
+    h1{margin-top:0}
+    table{border-collapse:collapse;width:100%;margin-bottom:1em}
+    th,td{border:1px solid #555;padding:5px;text-align:center}
+    input{width:80px}
+    .totals{margin-top:10px}
+    button{margin:5px;padding:10px}
+  </style>
+</head>
+<body>
+  <h1>Monthly Income Logger</h1>
+  <label>Month:
+    <select id="monthSelect"></select>
+  </label>
+  <table id="incomeTable">
+    <thead>
+      <tr><th>Date</th><th colspan="5">PF</th><th colspan="5">MEDS</th><th colspan="5">CF/PAPERS</th></tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+  <div class="totals">
+    PF Subtotal: <span id="pfTotal">0</span> |
+    MEDS Subtotal: <span id="medsTotal">0</span> |
+    CF/PAPERS Subtotal: <span id="cfTotal">0</span>
+  </div>
+  <div>
+    <button id="calcBtn">CALCULATE</button>
+    <span>Grand Total: <span id="grandTotal">0</span></span>
+  </div>
+  <script>
+    const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    const monthSelect = document.getElementById('monthSelect');
+    months.forEach((m,i)=>{
+      const opt=document.createElement('option'); opt.value=i; opt.textContent=m; monthSelect.appendChild(opt);
+    });
+    const tableBody = document.getElementById('tableBody');
+    function buildTable(month){
+      tableBody.innerHTML="";
+      const year = new Date().getFullYear();
+      const days = new Date(year, month+1, 0).getDate();
+      for(let d=1; d<=days; d++){
+        const tr = document.createElement('tr');
+        const dateCell = document.createElement('td');
+        dateCell.textContent = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        tr.appendChild(dateCell);
+        ["pf","meds","cf"].forEach(prefix=>{
+          for(let i=0;i<5;i++){
+            const td=document.createElement('td');
+            const input=document.createElement('input');
+            input.type="number"; input.step="any";
+            input.addEventListener('input', saveData);
+            td.appendChild(input);
+            tr.appendChild(td);
+          }
+        });
+        tableBody.appendChild(tr);
+      }
+      loadData();
+    }
+    function saveData(){
+      const data=[];
+      tableBody.querySelectorAll('tr').forEach(row=>{
+        const rowData=[];
+        row.querySelectorAll('input').forEach(inp=>rowData.push(inp.value));
+        data.push(rowData);
+      });
+      localStorage.setItem('incomeData_'+monthSelect.value, JSON.stringify(data));
+      updateTotals();
+    }
+    function loadData(){
+      const saved=JSON.parse(localStorage.getItem('incomeData_'+monthSelect.value)||"[]");
+      if(saved.length){
+        tableBody.querySelectorAll('tr').forEach((row,rIndex)=>{
+          row.querySelectorAll('input').forEach((inp,cIndex)=>{
+            inp.value=saved[rIndex][cIndex]||"";
+          });
+        });
+      }
+      updateTotals();
+    }
+    function updateTotals(){
+      let pf=0, meds=0, cf=0;
+      tableBody.querySelectorAll('tr').forEach(row=>{
+        const inputs=row.querySelectorAll('input');
+        inputs.forEach((inp,idx)=>{
+          const val=parseFloat(inp.value)||0;
+          if(idx<5) pf+=val;
+          else if(idx<10) meds+=val;
+          else cf+=val;
+        });
+      });
+      document.getElementById('pfTotal').textContent=pf.toFixed(2);
+      document.getElementById('medsTotal').textContent=meds.toFixed(2);
+      document.getElementById('cfTotal').textContent=cf.toFixed(2);
+    }
+    document.getElementById('calcBtn').addEventListener('click',()=>{
+      const grand = parseFloat(document.getElementById('pfTotal').textContent)+
+                    parseFloat(document.getElementById('medsTotal').textContent)+
+                    parseFloat(document.getElementById('cfTotal').textContent);
+      document.getElementById('grandTotal').textContent=grand.toFixed(2);
+    });
+    monthSelect.addEventListener('change',()=>buildTable(parseInt(monthSelect.value)));
+    monthSelect.value=new Date().getMonth();
+    buildTable(new Date().getMonth());
+    if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js');}
+  </script>
+</body>
+</html>
