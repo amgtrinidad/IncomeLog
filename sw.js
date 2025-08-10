@@ -1,4 +1,4 @@
-const CACHE = 'monthly-income-log-v1';
+const CACHE = 'income-monthly-v2';
 const BASE = new URL(self.registration.scope).pathname.replace(/\/$/, '');
 const SHELL = [
   `${BASE}/`,
@@ -24,19 +24,17 @@ self.addEventListener('fetch', (e) => {
     e.respondWith((async () => {
       try {
         const net = await fetch(req);
-        const copy = net.clone();
-        (await caches.open(CACHE)).put(req, copy);
+        (await caches.open(CACHE)).put(req, net.clone());
         return net;
       } catch (err) {
-        const cached = await caches.match(req);
-        return cached || caches.match(`${BASE}/index.html`);
+        return (await caches.match(req)) || (await caches.match(`${BASE}/index.html`));
       }
     })());
     return;
   }
   e.respondWith((async () => {
-    const cached = await caches.match(req);
-    if (cached) return cached;
+    const hit = await caches.match(req);
+    if (hit) return hit;
     const net = await fetch(req);
     (await caches.open(CACHE)).put(req, net.clone());
     return net;

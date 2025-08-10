@@ -8,111 +8,266 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icon-192.png">
   <style>
-    body{font-family:sans-serif;background:#0f172a;color:#fff;margin:0;padding:1em}
-    h1{margin-top:0}
-    table{border-collapse:collapse;width:100%;margin-bottom:1em}
-    th,td{border:1px solid #555;padding:5px;text-align:center}
-    input{width:80px}
-    .totals{margin-top:10px}
-    button{margin:5px;padding:10px}
+    :root{--bg:#0f172a;--panel:#111827;--text:#e5e7eb;--muted:#94a3b8;--ring:#1f2937;--input:#0b1220;--accent:#22c55e;--info:#60a5fa;--danger:#f43f5e}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    .wrap{max-width:1100px;margin:0 auto;padding:16px}
+    header{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    h1{font-size:18px;margin:0}
+    .monthbar{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+    .tab{padding:8px 10px;border:1px solid var(--ring);border-radius:10px;background:#0b1220;color:#cbd5e1;cursor:pointer;font-weight:600}
+    .tab.active{background:var(--accent);color:#03120a;border-color:transparent}
+    .grid{display:grid;gap:12px;grid-template-columns:140px repeat(3,minmax(250px,1fr))}
+    .col{background:#0b1220;border:1px solid var(--ring);border-radius:14px;overflow:hidden}
+    .col h2{margin:0;padding:10px 12px;font-size:13px;background:linear-gradient(180deg,#111827,#0b1220);border-bottom:1px solid var(--ring)}
+    .rows{padding:10px;max-height:58vh;overflow:auto}
+    .day{border:1px dashed #233047;border-radius:12px;margin-bottom:10px;padding:10px;background:#0a0f1c}
+    .day .head{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px}
+    .date{background:var(--input);border:1px solid var(--ring);color:var(--text);padding:8px 10px;border-radius:10px}
+    .stack{display:flex;flex-direction:column;gap:6px}
+    .stack .row{display:flex;gap:8px;align-items:center}
+    .idx{width:18px;color:var(--muted);text-align:right}
+    input[type="number"]{width:100%;padding:10px;border-radius:10px;border:1px solid var(--ring);background:#081020;color:var(--text);outline:none;font-size:14px}
+    input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+    .subline{margin-top:6px;font-size:12px;color:var(--muted);display:flex;justify-content:space-between}
+    .subline .val{color:var(--text);font-weight:700}
+    .grand{padding:6px 10px;border:1px solid var(--ring);border-radius:10px;background:#0b1220;font-weight:700}
+    .btns{display:flex;gap:8px;flex-wrap:wrap}
+    button{border:1px solid var(--ring);background:#111827;color:var(--text);padding:8px 12px;border-radius:10px;font-weight:700;cursor:pointer}
+    .primary{background:var(--accent);color:#07150c;border-color:transparent}
+    .ghost{background:#0b1220}
+    .danger{background:var(--danger);color:#20070a;border-color:transparent}
+    .meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}
+    .badge{font-size:12px;border:1px solid var(--ring);padding:6px 8px;border-radius:10px;background:#0b1220;color:#60a5fa}
   </style>
 </head>
 <body>
-  <h1>Monthly Income Logger</h1>
-  <label>Month:
-    <select id="monthSelect"></select>
-  </label>
-  <table id="incomeTable">
-    <thead>
-      <tr><th>Date</th><th colspan="5">PF</th><th colspan="5">MEDS</th><th colspan="5">CF/PAPERS</th></tr>
-    </thead>
-    <tbody id="tableBody"></tbody>
-  </table>
-  <div class="totals">
-    PF Subtotal: <span id="pfTotal">0</span> |
-    MEDS Subtotal: <span id="medsTotal">0</span> |
-    CF/PAPERS Subtotal: <span id="cfTotal">0</span>
+  <div class="wrap">
+    <header>
+      <h1>Monthly Income Logger</h1>
+      <div id="monthbar" class="monthbar"></div>
+      <div class="meta">
+        <span id="logBadge" class="badge">Days: 0</span>
+        <button id="installBtn" class="ghost">Install App</button>
+        <button id="exportBtn" class="ghost">Export</button>
+        <button id="importBtn" class="ghost">Import</button>
+        <button id="addDay" class="ghost">+ Add Day</button>
+      </div>
+    </header>
+
+    <div class="grid">
+      <div class="col"><h2>DATE</h2><div class="rows" id="col-date"></div></div>
+      <div class="col"><h2>PF</h2><div class="rows" id="col-pf"></div></div>
+      <div class="col"><h2>MEDS</h2><div class="rows" id="col-meds"></div></div>
+      <div class="col"><h2>CF / PAPERS</h2><div class="rows" id="col-cf"></div></div>
+    </div>
   </div>
-  <div>
-    <button id="calcBtn">CALCULATE</button>
-    <span>Grand Total: <span id="grandTotal">0</span></span>
-  </div>
+
+  <template id="dayTpl">
+    <div class="day">
+      <div class="head">
+        <input class="date" type="date" />
+        <div class="btns">
+          <button class="primary calc">CALCULATE</button>
+          <button class="danger clear">Clear</button>
+        </div>
+      </div>
+      <div class="stack">
+        <div class="row"><span class="idx">1</span><input type="number" step="any" inputmode="decimal" placeholder="0.00"></div>
+        <div class="row"><span class="idx">2</span><input type="number" step="any" inputmode="decimal" placeholder="0.00"></div>
+        <div class="row"><span class="idx">3</span><input type="number" step="any" inputmode="decimal" placeholder="0.00"></div>
+        <div class="row"><span class="idx">4</span><input type="number" step="any" inputmode="decimal" placeholder="0.00"></div>
+        <div class="row"><span class="idx">5</span><input type="number" step="any" inputmode="decimal" placeholder="0.00"></div>
+      </div>
+      <div class="subline"><span>Column Subtotal</span><span class="val">₱0.00</span></div>
+      <div class="subline"><span>Grand Total (Day)</span><span class="val grand">₱0.00</span></div>
+    </div>
+  </template>
+
   <script>
-    const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-    const monthSelect = document.getElementById('monthSelect');
-    months.forEach((m,i)=>{
-      const opt=document.createElement('option'); opt.value=i; opt.textContent=m; monthSelect.appendChild(opt);
-    });
-    const tableBody = document.getElementById('tableBody');
-    function buildTable(month){
-      tableBody.innerHTML="";
-      const year = new Date().getFullYear();
-      const days = new Date(year, month+1, 0).getDate();
-      for(let d=1; d<=days; d++){
-        const tr = document.createElement('tr');
-        const dateCell = document.createElement('td');
-        dateCell.textContent = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-        tr.appendChild(dateCell);
-        ["pf","meds","cf"].forEach(prefix=>{
-          for(let i=0;i<5;i++){
-            const td=document.createElement('td');
-            const input=document.createElement('input');
-            input.type="number"; input.step="any";
-            input.addEventListener('input', saveData);
-            td.appendChild(input);
-            tr.appendChild(td);
-          }
-        });
-        tableBody.appendChild(tr);
-      }
-      loadData();
-    }
-    function saveData(){
-      const data=[];
-      tableBody.querySelectorAll('tr').forEach(row=>{
-        const rowData=[];
-        row.querySelectorAll('input').forEach(inp=>rowData.push(inp.value));
-        data.push(rowData);
+    // Format helpers
+    const peso = n => '₱' + (Math.round((+n||0)*100)/100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const toNum = v => { const n = parseFloat(v); return isFinite(n) ? n : 0; };
+
+    // Keys
+    const monthKey = (y,m) => `MIL_MONTH:${y}-${String(m+1).padStart(2,'0')}`;
+    const dayKey = (dateStr) => `MIL_DAY:${dateStr}`;
+
+    const els = {
+      monthbar: document.getElementById('monthbar'),
+      colDate: document.getElementById('col-date'),
+      colPF: document.getElementById('col-pf'),
+      colMEDS: document.getElementById('col-meds'),
+      colCF: document.getElementById('col-cf'),
+      addDay: document.getElementById('addDay'),
+      exportBtn: document.getElementById('exportBtn'),
+      importBtn: document.getElementById('importBtn'),
+      installBtn: document.getElementById('installBtn'),
+      logBadge: document.getElementById('logBadge'),
+      tpl: document.getElementById('dayTpl')
+    };
+
+    const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    let curYear = new Date().getFullYear();
+    let curMonth = new Date().getMonth();
+    let monthIndex = []; // list of date strings in month
+
+    function buildMonthTabs(){
+      els.monthbar.innerHTML='';
+      MONTHS.forEach((name,i)=>{
+        const b=document.createElement('button');
+        b.className='tab' + (i===curMonth?' active':'');
+        b.textContent=name;
+        b.addEventListener('click', ()=>{ curMonth=i; Array.from(els.monthbar.children).forEach(c=>c.classList.remove('active')); b.classList.add('active'); loadMonth(); });
+        els.monthbar.appendChild(b);
       });
-      localStorage.setItem('incomeData_'+monthSelect.value, JSON.stringify(data));
-      updateTotals();
     }
-    function loadData(){
-      const saved=JSON.parse(localStorage.getItem('incomeData_'+monthSelect.value)||"[]");
-      if(saved.length){
-        tableBody.querySelectorAll('tr').forEach((row,rIndex)=>{
-          row.querySelectorAll('input').forEach((inp,cIndex)=>{
-            inp.value=saved[rIndex][cIndex]||"";
-          });
+
+    function saveMonthIndex(){
+      localStorage.setItem(monthKey(curYear,curMonth), JSON.stringify(monthIndex));
+      els.logBadge.textContent = 'Days: ' + monthIndex.length;
+    }
+    function loadMonthIndex(){
+      try { monthIndex = JSON.parse(localStorage.getItem(monthKey(curYear,curMonth))) || []; }
+      catch { monthIndex = []; }
+      els.logBadge.textContent = 'Days: ' + monthIndex.length;
+    }
+
+    function newDayObj(dateStr){
+      return { date: dateStr, pf:[0,0,0,0,0], meds:[0,0,0,0,0], cf:[0,0,0,0,0] };
+    }
+
+    function saveDayObj(obj){
+      localStorage.setItem(dayKey(obj.date), JSON.stringify(obj));
+      if (!monthIndex.includes(obj.date)){ monthIndex.push(obj.date); monthIndex.sort(); saveMonthIndex(); }
+    }
+    function loadDayObj(dateStr){
+      try { return JSON.parse(localStorage.getItem(dayKey(dateStr))); } catch { return null; }
+    }
+
+    function addDayUI(obj){
+      // Date column block
+      const dblk = els.tpl.content.cloneNode(true).children[0];
+      const dateInput = dblk.querySelector('.date');
+      dateInput.value = obj.date;
+      dateInput.addEventListener('change', ()=>{
+        const oldKey = dayKey(obj.date);
+        obj.date = dateInput.value;
+        // move storage key if date changed
+        const data = localStorage.getItem(oldKey);
+        if (data){ localStorage.removeItem(oldKey); }
+        saveDayObj(obj);
+        renderMonth(); // re-render to keep columns aligned by date
+      });
+      // clear button clears that day's all columns
+      dblk.querySelector('.clear').addEventListener('click', ()=>{
+        if (!confirm('Clear all inputs for ' + obj.date + '?')) return;
+        obj.pf=[0,0,0,0,0]; obj.meds=[0,0,0,0,0]; obj.cf=[0,0,0,0,0];
+        saveDayObj(obj); renderMonth();
+      });
+      // we only show Column Subtotal lines/inputs in category columns; hide here
+      dblk.querySelector('.subline').style.display='none';
+      dblk.querySelector('.stack').style.display='none';
+      dblk.querySelector('.calc').style.display='none';
+      dblk.querySelector('.grand').textContent = peso(obj.pf.reduce((a,b)=>a+b,0)+obj.meds.reduce((a,b)=>a+b,0)+obj.cf.reduce((a,b)=>a+b,0));
+      els.colDate.appendChild(dblk);
+
+      // Helper to build a category column (vertical 5 inputs + per-column subtotal + per-day grand total)
+      function buildCat(colEl, arrGetter, arrSetter){
+        const blk = els.tpl.content.cloneNode(true).children[0];
+        blk.querySelector('.date').style.display='none'; // date picker only in DATE column
+        blk.querySelector('.clear').style.display='none';
+        const inputs = blk.querySelectorAll('input[type="number"]');
+        const subVal = blk.querySelector('.subline .val');
+        const grandVal = blk.querySelector('.grand');
+        // init values
+        arrGetter().forEach((v,i)=>{ inputs[i].value = v || ''; });
+        function recompute(){
+          const a = Array.from(inputs).map(inp => toNum(inp.value));
+          arrSetter(a);
+          saveDayObj(obj);
+          const sub = a.reduce((x,y)=>x+y,0);
+          subVal.textContent = peso(sub);
+          grandVal.textContent = peso(obj.pf.reduce((x,y)=>x+y,0)+obj.meds.reduce((x,y)=>x+y,0)+obj.cf.reduce((x,y)=>x+y,0));
+        }
+        inputs.forEach(inp => inp.addEventListener('input', recompute));
+        blk.querySelector('.calc').addEventListener('click', recompute);
+        // first paint
+        recompute();
+        colEl.appendChild(blk);
+      }
+
+      buildCat(els.colPF, ()=>obj.pf, (a)=>obj.pf=a);
+      buildCat(els.colMEDS, ()=>obj.meds, (a)=>obj.meds=a);
+      buildCat(els.colCF, ()=>obj.cf, (a)=>obj.cf=a);
+    }
+
+    function renderMonth(){
+      els.colDate.innerHTML=''; els.colPF.innerHTML=''; els.colMEDS.innerHTML=''; els.colCF.innerHTML='';
+      loadMonthIndex();
+      if (monthIndex.length===0){
+        // add one day for convenience
+        const d = new Date(curYear, curMonth, new Date().getDate());
+        const dateStr = [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-');
+        const obj = newDayObj(dateStr); saveDayObj(obj);
+        loadMonthIndex();
+      }
+      monthIndex.forEach(dateStr => {
+        const obj = loadDayObj(dateStr) || newDayObj(dateStr);
+        addDayUI(obj);
+      });
+    }
+
+    function addDay(){
+      const today = new Date();
+      const day = Math.min(today.getDate(), new Date(curYear, curMonth+1, 0).getDate());
+      const dateStr = [curYear, String(curMonth+1).padStart(2,'0'), String(day).padStart(2,'0')].join('-');
+      const obj = newDayObj(dateStr);
+      saveDayObj(obj);
+      renderMonth();
+    }
+
+    // Export / Import
+    els.exportBtn.addEventListener('click', ()=>{
+      const pack = { year: curYear, data:{} };
+      for (let m=0;m<12;m++){
+        const mkey = monthKey(curYear,m);
+        try { pack.data[mkey] = JSON.parse(localStorage.getItem(mkey))||[]; } catch { pack.data[mkey]=[]; }
+        (pack.data[mkey]||[]).forEach(dateStr => {
+          try { pack.data[dayKey(dateStr)] = JSON.parse(localStorage.getItem(dayKey(dateStr)))||{}; } catch {}
         });
       }
-      updateTotals();
-    }
-    function updateTotals(){
-      let pf=0, meds=0, cf=0;
-      tableBody.querySelectorAll('tr').forEach(row=>{
-        const inputs=row.querySelectorAll('input');
-        inputs.forEach((inp,idx)=>{
-          const val=parseFloat(inp.value)||0;
-          if(idx<5) pf+=val;
-          else if(idx<10) meds+=val;
-          else cf+=val;
-        });
-      });
-      document.getElementById('pfTotal').textContent=pf.toFixed(2);
-      document.getElementById('medsTotal').textContent=meds.toFixed(2);
-      document.getElementById('cfTotal').textContent=cf.toFixed(2);
-    }
-    document.getElementById('calcBtn').addEventListener('click',()=>{
-      const grand = parseFloat(document.getElementById('pfTotal').textContent)+
-                    parseFloat(document.getElementById('medsTotal').textContent)+
-                    parseFloat(document.getElementById('cfTotal').textContent);
-      document.getElementById('grandTotal').textContent=grand.toFixed(2);
+      const blob = new Blob([JSON.stringify(pack,null,2)], {type:'application/json'});
+      const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`income-monthly-${curYear}.json`; a.click(); URL.revokeObjectURL(a.href);
     });
-    monthSelect.addEventListener('change',()=>buildTable(parseInt(monthSelect.value)));
-    monthSelect.value=new Date().getMonth();
-    buildTable(new Date().getMonth());
-    if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js');}
+    els.importBtn.addEventListener('click', ()=>{
+      const inp = document.createElement('input'); inp.type='file'; inp.accept='application/json';
+      inp.onchange = async () => {
+        const f = inp.files[0]; if (!f) return;
+        const txt = await f.text();
+        try {
+          const obj = JSON.parse(txt);
+          if (obj && obj.data){
+            Object.keys(obj.data).forEach(k => localStorage.setItem(k, JSON.stringify(obj.data[k])));
+            renderMonth();
+            alert('Import complete.');
+          } else alert('Invalid file.');
+        } catch { alert('Import failed.'); }
+      };
+      inp.click();
+    });
+
+    // Add day button
+    els.addDay.addEventListener('click', addDay);
+
+    // PWA install
+    if ('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+    let deferredPrompt; window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt=e; els.installBtn.style.display='inline-block'; });
+    els.installBtn.addEventListener('click', async ()=>{ if (!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; els.installBtn.style.display='none'; });
+
+    // Init
+    buildMonthTabs();
+    renderMonth();
   </script>
 </body>
 </html>
